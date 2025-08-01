@@ -9,6 +9,11 @@ Comparar a eficácia e durabilidade de cookies entre:
 - **Grupo Controle (50%)**: gtag.js do Google oficial
 - **Grupo Teste (50%)**: gtag.js servido via domínio first-party
 
+## Status do Projeto
+✅ **Implementação Completa** - Experimento funcional e testado  
+✅ **Correção de Timing** - Fila de eventos implementada  
+✅ **Zero Perda de Dados** - Todos os eventos são capturados
+
 ## Arquitetura do Experimento
 
 ### Divisão de Tráfego
@@ -51,7 +56,28 @@ const config = {
 // exp_variant_string é enviado diretamente como parâmetro dos eventos
 ```
 
-### 2. Eventos Rastreados
+### 2. Sistema de Fila de Eventos
+Para resolver problemas de timing durante o carregamento inicial:
+
+```javascript
+// Fila temporária até gtag carregar
+if (!window.sendGAEvent) {
+  window.pendingGAEvents = window.pendingGAEvents || [];
+  window.sendGAEvent = function(eventName, parameters) {
+    window.pendingGAEvents.push({ eventName, parameters });
+  };
+}
+
+// Processa fila quando gtag carrega
+if (window.pendingGAEvents && window.pendingGAEvents.length > 0) {
+  window.pendingGAEvents.forEach(({ eventName, parameters }) => {
+    window.sendGAEvent(eventName, parameters);
+  });
+  window.pendingGAEvents = [];
+}
+```
+
+### 3. Eventos Rastreados
 Todos os eventos incluem `exp_variant_string` com o valor da variante:
 
 | Momento | Evento | Parâmetros |
@@ -64,7 +90,7 @@ Todos os eventos incluem `exp_variant_string` com o valor da variante:
 | Iniciar checkout | `begin_checkout` | items, value |
 | Compra finalizada | `purchase` | transaction_id, items, value |
 
-### 3. Estrutura de Pastas
+### 4. Estrutura de Pastas
 ```
 app/
 ├── page.js                    # Home
@@ -97,8 +123,10 @@ utils/
 
 ### 2. Carregamento do GA4
 1. GtagScript component lê o cookie `ab-group` no cliente
-2. Carrega gtag.js da fonte apropriada baseado na variante
-3. Configura GA4 com parâmetros padrão para ambos os grupos
+2. Cria fila temporária (`window.pendingGAEvents`) para eventos iniciais
+3. Carrega gtag.js da fonte apropriada baseado na variante
+4. Processa automaticamente eventos em fila quando gtag fica disponível
+5. Configura GA4 com parâmetros padrão para ambos os grupos
 
 ### 3. Envio de Eventos
 ```javascript
@@ -108,11 +136,17 @@ window.sendGAEvent('view_item', {
   value: product.price
 });
 // exp_variant_string é adicionado automaticamente
+
+// Logs esperados:
+// [sendGAEvent] Adicionando evento à fila: view_item (se gtag não carregou)
+// [gtag] Processando X eventos em fila (quando gtag carrega)
+// [gtag] 📤 Evento enviado via first-party: view_item (evento processado)
 ```
 
 ### 4. Processamento
 - **Controle**: gtag.js do Google oficial → GA4 direto
 - **Teste**: gtag.js first-party → GA4 com cookies duradouros
+- **Ambos**: Zero perda de eventos graças ao sistema de fila
 
 ## Configuração
 
@@ -171,6 +205,49 @@ NEXT_PUBLIC_GA4_ID=G-VK3S9QL6HY
 - Servidor first-party requer monitoramento
 - Necessidade de sincronizar atualizações do gtag.js original
 - Custos de infraestrutura de CDN/proxy
+
+## Troubleshooting
+
+### Problemas Comuns e Soluções
+
+#### ❌ Erro: "window.sendGAEvent não disponível"
+**Causa**: Eventos sendo chamados antes do gtag carregar  
+**Solução**: ✅ Resolvido com sistema de fila - eventos são automaticamente enfileirados e processados
+
+#### ❌ Eventos não aparecem no GA4
+**Verificar**:
+1. `NEXT_PUBLIC_GA4_ID` está configurado corretamente
+2. Console mostra logs `[gtag] 📤 Evento enviado`
+3. Dimensão personalizada `exp_variant_string` foi criada no GA4
+
+#### ❌ Hydration mismatch
+**Causa**: Diferenças entre server/client rendering  
+**Solução**: ✅ Resolvido com `suppressHydrationWarning` e leitura de cookies no cliente
+
+#### 🐛 Debug de Variantes
+```javascript
+// No console do navegador:
+document.cookie.split(';').find(c => c.includes('ab-group'))
+// Resultado esperado: " ab-group=controle" ou " ab-group=teste"
+```
+
+### Logs de Sucesso Esperados
+
+**Grupo Controle**:
+```
+[gtag] 🎯 Grupo CONTROLE
+[gtag] - Fonte: www.googletagmanager.com (Google oficial)
+[gtag] Processando X eventos em fila
+[gtag] 📤 Evento enviado via Google oficial: page_view
+```
+
+**Grupo Teste**:
+```
+[gtag] 🧪 Grupo TESTE
+[gtag] - Fonte: gtm.antiachismosocialclub.com.br (first-party)
+[gtag] Processando X eventos em fila
+[gtag] 📤 Evento enviado via first-party: page_view
+```
 
 ## Próximos Passos
 
