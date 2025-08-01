@@ -26,7 +26,17 @@ export default function GtagScript() {
       return abCookie ? abCookie.split('=')[1].trim() : null;
     };
 
-    setVariant(getAbGroup());
+    const detectedVariant = getAbGroup();
+    setVariant(detectedVariant);
+
+    // Cria uma fila temporária de eventos até o gtag carregar
+    if (!window.sendGAEvent) {
+      window.pendingGAEvents = window.pendingGAEvents || [];
+      window.sendGAEvent = function(eventName, parameters) {
+        console.log('[sendGAEvent] Adicionando evento à fila:', eventName);
+        window.pendingGAEvents.push({ eventName, parameters, timestamp: Date.now() });
+      };
+    }
   }, []);
 
   if (!measurementId) {
@@ -106,6 +116,15 @@ export default function GtagScript() {
                 console.log('[gtag] 📤 Evento enviado via Google oficial:', eventName, eventParams);
               }
             };
+
+            // Processa eventos em fila que foram coletados antes do gtag carregar
+            if (window.pendingGAEvents && window.pendingGAEvents.length > 0) {
+              console.log('[gtag] Processando', window.pendingGAEvents.length, 'eventos em fila');
+              window.pendingGAEvents.forEach(({ eventName, parameters }) => {
+                window.sendGAEvent(eventName, parameters);
+              });
+              window.pendingGAEvents = []; // Limpa a fila
+            }
 
             console.log('[gtag] ✅ Google Analytics 4 inicializado');
           `,
