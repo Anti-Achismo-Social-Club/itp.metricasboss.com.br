@@ -1,17 +1,16 @@
-import { sendGtagEvent } from '../hooks/useGtag';
-
 /**
  * Helper unificado para envio de eventos de analytics
  * 
- * Gerencia automaticamente a diferença entre grupos do experimento A/B:
- * - Grupo CONTROLE: Envia via gtag.js (client-side GA4)
- * - Grupo TESTE: Envia via fetch para /api/track (server-side simulado)
+ * Utiliza a função global window.sendGAEvent criada pelo GtagScript
+ * Ambos os grupos (controle e teste) usam gtag.js:
+ * - Grupo CONTROLE: gtag.js → GA4 direto
+ * - Grupo TESTE: gtag.js → GTM Server → GA4
  * 
  * Todos os eventos incluem automaticamente exp_variant_string
  */
 
 /**
- * Envia evento de analytics baseado na variante do experimento
+ * Envia evento de analytics usando a função global do gtag
  * @param {string} eventName - Nome do evento GA4
  * @param {Object} parameters - Parâmetros do evento
  * @param {string} variant - Variante do experimento ('controle' ou 'teste')
@@ -22,67 +21,20 @@ export async function sendAnalyticsEvent(eventName, parameters = {}, variant) {
     return;
   }
 
-  // Adiciona exp_variant_string a todos os eventos
-  const eventParams = {
-    ...parameters,
-    exp_variant_string: variant
-  };
-
   try {
-    if (variant === 'controle') {
-      // Grupo CONTROLE: Usa gtag.js tradicional
-      sendGtagEvent(eventName, eventParams, variant);
-      
-    } else if (variant === 'teste') {
-      // Grupo TESTE: Envia para servidor via /api/track
-      await sendServerSideEvent(eventName, eventParams);
-      
+    // Usa a função global window.sendGAEvent criada pelo GtagScript
+    if (typeof window !== 'undefined' && window.sendGAEvent) {
+      window.sendGAEvent(eventName, parameters);
     } else {
-      console.warn(`[sendAnalyticsEvent] Variante desconhecida: ${variant}`);
+      console.warn('[sendAnalyticsEvent] window.sendGAEvent não disponível');
     }
   } catch (error) {
     console.error('[sendAnalyticsEvent] Erro ao enviar evento:', error);
   }
 }
 
-/**
- * Envia evento para o endpoint server-side (/api/track)
- * Usado exclusivamente pelo grupo TESTE
- * @param {string} eventName - Nome do evento
- * @param {Object} parameters - Parâmetros do evento
- */
-async function sendServerSideEvent(eventName, parameters) {
-  try {
-    const payload = {
-      event_name: eventName,
-      parameters: parameters,
-      page_url: typeof window !== 'undefined' ? window.location.href : '',
-      page_title: typeof window !== 'undefined' ? document.title : '',
-      timestamp: new Date().toISOString(),
-      user_agent: typeof window !== 'undefined' ? navigator.userAgent : ''
-    };
-
-    const response = await fetch('/api/track', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-    console.log(`[Server-side] Evento enviado: ${eventName}`, parameters);
-    
-    return result;
-  } catch (error) {
-    console.error('[Server-side] Erro ao enviar evento:', error);
-    throw error;
-  }
-}
+// Função sendServerSideEvent removida - não é mais necessária
+// Agora ambos os grupos usam gtag com configurações diferentes
 
 // ============================================
 // EVENTOS ESPECÍFICOS DE E-COMMERCE

@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { useGtag } from '../hooks/useGtag';
 import { sendPageViewEvent } from '../utils/sendAnalyticsEvent';
 
 /**
@@ -18,8 +17,6 @@ export default function ThankYouPage({ variant: serverVariant }) {
   // Usa a variant do servidor
   const variant = serverVariant;
   
-  // Inicializa GA4 apenas para grupo controle e após montar
-  useGtag(process.env.NEXT_PUBLIC_GA4_ID, mounted ? variant : null);
 
   useEffect(() => {
     setMounted(true);

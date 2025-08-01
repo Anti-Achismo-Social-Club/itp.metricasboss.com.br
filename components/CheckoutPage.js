@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useCart } from '../contexts/CartContext';
-import { useGtag } from '../hooks/useGtag';
 import { sendBeginCheckoutEvent, sendPurchaseEvent, sendPageViewEvent } from '../utils/sendAnalyticsEvent';
 import { productToGA4Item } from '../lib/products';
 import { currencyFormat, generateTransactionId, isValidEmail, formatCEP, formatCPF } from '../utils/helpers';
@@ -22,8 +21,6 @@ export default function CheckoutPage({ variant: serverVariant }) {
   // Usa a variant do servidor
   const variant = serverVariant;
   
-  // Inicializa GA4 apenas para grupo controle e após montar
-  useGtag(process.env.NEXT_PUBLIC_GA4_ID, mounted ? variant : null);
 
   // Estados do formulário
   const [formData, setFormData] = useState({

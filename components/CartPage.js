@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useCart } from '../contexts/CartContext';
-import { useGtag } from '../hooks/useGtag';
 import { sendViewCartEvent, sendPageViewEvent } from '../utils/sendAnalyticsEvent';
 import { productToGA4Item } from '../lib/products';
 import { currencyFormat } from '../utils/helpers';
@@ -19,8 +18,6 @@ export default function CartPage({ variant: serverVariant }) {
   // Usa a variant do servidor
   const variant = serverVariant;
   
-  // Inicializa GA4 apenas para grupo controle e após montar
-  useGtag(process.env.NEXT_PUBLIC_GA4_ID, mounted ? variant : null);
 
   useEffect(() => {
     setMounted(true);

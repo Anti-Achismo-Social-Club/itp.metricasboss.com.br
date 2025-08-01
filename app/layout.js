@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "../contexts/CartContext";
 import Header from "../components/Header";
+import GtagScript from "../components/GtagScript";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,10 +22,14 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
+      <head>
+        
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
+        <GtagScript />
         <CartProvider>
           <Header />
           <main className="min-h-screen">
